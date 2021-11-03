@@ -1,0 +1,60 @@
+vault server -dev -dev-root-token-id root
+
+export VAULT_ADDR='http://127.0.0.1:8200'
+
+export VAULT_TOKEN=root
+
+vault secrets enable azure
+
+vault write azure/config \
+        subscription_id=$SUBSCRIPTION_ID  \
+        client_id=$CLIENT_ID \
+        client_secret=$CLIENT_SECRET \
+        tenant_id=$TENANT_ID
+
+
+#assigns the contributor role for your resource group to the vault role your created
+vault write azure/roles/AzureVaultRole ttl=1h azure_roles=-<<EOF
+    [
+      {
+        "role_name": "Contributor",
+        "scope": "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/AzureVaultGroup"
+      }
+    ]
+EOF
+
+vault policy write azure-vault-admin - << EOF
+# Mount secrets engines
+path "sys/mounts/*" {
+  capabilities = [ "create", "read", "update", "delete", "list" ]
+}
+
+# Configure the azure secrets engine and create roles
+path "azure/*" {
+  capabilities = [ "create", "read", "update", "delete", "list" ]
+}
+
+# Write ACL policies
+path "sys/policies/acl/*" {
+  capabilities = [ "create", "read", "update", "delete", "list" ]
+}
+
+# Manage tokens for verification
+path "auth/token/create" {
+  capabilities = [ "create", "read", "update", "delete", "list", "sudo" ]
+}
+
+EOF
+
+vault policy write azure-vault-apps - << EOF
+#provide read to apps
+path "azure/creds/edu-app" {
+  capabilities = [ "read" ]
+}
+EOF
+
+vault read azure/creds/edu-app
+
+APPS_TOKEN=$(vault token create -policy=apps -field=token)
+
+VAULT_TOKEN=$APPS_TOKEN vault read azure/creds/edu-app

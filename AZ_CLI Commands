@@ -1,0 +1,11 @@
+#These commands leverage the Azure AD and Azure Account commands of Azure CLI to pull back basic information and assign it to variables
+#The --query parameter documented here: https://docs.microsoft.com/en-us/cli/azure/query-azure-cli is used to navigate the returned json 
+#Finally the indiviually returned value is output in tab separated value format to provide a clean value with no additional characters
+#Comprehensive documentation for Azure CLI commands can be found here: https://docs.microsoft.com/en-us/cli/azure/reference-index?view=azure-cli-latest 
+
+TENANT_ID=$(az account list --query '[].tenantId' -o tsv)
+SUBSCRIPTION_ID=$(az account list --query '[].id' -o tsv)
+CLIENT_ID=$(az ad app list --query "[?displayName=='education'].appId" -o tsv)
+CLIENT_SECRET=$(az ad app credential reset --id $CLIENT_ID --append --query 'password' -o tsv)
+
+SPN=$(az ad sp list --all --query "[?displayName=='Azure_TF_Vault_app'].objectId" -o tsv)
